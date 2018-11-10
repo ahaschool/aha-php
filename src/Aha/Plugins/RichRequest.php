@@ -1,11 +1,12 @@
 <?php
 
-namespace Aha;
+namespace Aha\Plugins;
 
 use Illuminate\Http\Request;
 
 class RichRequest
 {
+    public const service = '\Illuminate\Http\Request';
     public static $bindings = [
         'findOrFail' => 'static::findOrFail',
         'validate' => 'static::validate',
@@ -25,8 +26,12 @@ class RichRequest
         $keys = array_unique(array_map(function($value) {
             return strchr($value . '.', '.', true);
         }, array_keys($roles)));
+        // 解决日期类型null值收不到问题
         $keys = array_flip($keys);
         $data = array_intersect_key($request->input(), $keys);
+        // $data = array_filter($request->only($keys), function($value) {
+        //     return (null !== $value);
+        // });
         $keys = [];
         $attributes = '<' . implode('>' . PHP_EOL . '<', array_keys(array_dot($data))) . '>';
         foreach ($roles as $key => $value) {
