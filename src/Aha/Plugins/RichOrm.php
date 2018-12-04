@@ -165,6 +165,7 @@ class RichOrm implements Scope
         }
         $scope = new static;
         app('events')->listen('eloquent.booting: *', function ($model) use ($scope) {
+            $model = trim(strrchr(' ' . $model, ' '));
             $model::addGlobalScope($scope);
         });
     }
