@@ -42,6 +42,14 @@ class AhaServiceProvider extends ServiceProvider
             \Illuminate\Contracts\Debug\ExceptionHandler::class,
             \Aha\Exceptions\Handler::class
         );
-        class_alias('\Aha\Snippets\RestfulService', 'Serv');
+        // 本地调试环境判断
+        if (php_sapi_name() == 'cli' && env('AHA_PRINT') == 'true') {
+            \Aha\Help::$debug = true;
+        }
+        // 首次启动配置别名
+        if (!\Aha\Help::$booted) {
+            class_alias('\Aha\Snippets\RestfulService', 'Serv');
+        }
+        \Aha\Help::$booted = true;
     }
 }

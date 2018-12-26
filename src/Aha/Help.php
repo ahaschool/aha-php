@@ -4,6 +4,8 @@ namespace Aha;
 
 class Help
 {
+    public static $booted = false;
+
     public static function encrypt($value, $key = '')
     {
         return base64_encode(openssl_encrypt(serialize($value), 'aes-128-cbc', $key ?: 'baX3WykGjZWJ6qwT', 0, 'GXeFpZ93ANTjnsaC'));
@@ -45,5 +47,16 @@ class Help
             $str = date('Y-m-d H:i:s') . ' - ' . $content . PHP_EOL;
             file_put_contents($file, $str, FILE_APPEND);
         } catch (\Exception $e) {}
+    }
+
+    // 仅限开发时调试打印
+    public static $debug = false;
+    public static function print()
+    {
+        if (static::$debug) {
+            $obj = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1)[0];
+            echo PHP_EOL . $obj['file'] . ' : ' . $obj['line'] . PHP_EOL;
+            print_r(func_get_args());
+        }
     }
 }
