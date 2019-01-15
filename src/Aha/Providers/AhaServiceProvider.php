@@ -13,6 +13,12 @@ class AhaServiceProvider extends ServiceProvider
             $name = substr(strchr(basename($path), '.', TRUE), 4);
             $this->registerService('\Aha\Plugins\Rich' . $name);
         }
+        $this->registerCommand();
+    }
+
+    public function registerCommand()
+    {
+        $this->commands(['\Aha\Commands\WikiCommand']);
     }
 
     public function registerService($plugin)
