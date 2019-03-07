@@ -2,7 +2,7 @@
   "name" : "ahaschool/aha-php",
   "description" : "Ahaschool PHP micro Framework",
   "license":"MIT",
-  "version":"1.0.4",
+  "version":"1.0.6",
   "authors": [
     {
       "name": "小方老师",
