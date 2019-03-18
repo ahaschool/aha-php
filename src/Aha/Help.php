@@ -16,6 +16,16 @@ class Help
         return unserialize(openssl_decrypt(base64_decode($value), 'aes-128-cbc', $key ?: 'baX3WykGjZWJ6qwT', 0, 'GXeFpZ93ANTjnsaC'));
     }
 
+    public static function matchOne(&$data, $func, $rule, $name = '')
+    {
+        \Aha\Snippets\ServiceRelation::matchOne($data, $func, $rule, $name);
+    }
+
+    public static function matchMany(&$data, $func, $rule, $name = '')
+    {
+        \Aha\Snippets\ServiceRelation::matchMany($data, $func, $rule, $name);
+    }
+
     // json数据post请求
     public static function post($url, $data)
     {
