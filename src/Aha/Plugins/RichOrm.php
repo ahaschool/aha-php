@@ -2,6 +2,7 @@
 
 namespace Aha\Plugins;
 
+use Aha\Snippets\ServiceRelation;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
@@ -16,6 +17,8 @@ class RichOrm implements Scope
         'relate' => 'static::relate',
         'request' => 'static::request',
         'findOrSave' => 'static::findOrSave',
+        'withOne' => 'static::withOne',
+        'withMany' => 'static::withMany',
     ];
 
     public static function findOrSave($builder, $data)
@@ -140,10 +143,49 @@ class RichOrm implements Scope
         return $builder;
     }
 
+    public static function withOne($builder, $name, $func = null)
+    {
+        return static::withMany($builder, $name, $func, 1);
+    }
+
+    public static function withMany($builder, $name, $func = null, $one = 0)
+    {
+        list($name, $str) = explode(':', $name . ':');
+        $method = function ($builder) use ($name, $str, $one) {
+            $builder->macro($name, function ($builder) use ($str, $one) {
+                $arr = explode(',', $str . ',');
+                $m = $builder->getModel();
+                $q = $m->newQuery();
+                $query = new ServiceRelation($q, $m);
+                if ($arr[0]) {
+                    $query->config('foreign_key', $arr[0]);
+                }
+                if ($arr[1]) {
+                    $query->config('local_key', $arr[1]);
+                }
+                $query->config('one_or_many', $one ? true : false);
+                return $query;
+            });
+        };
+        $item = ['model' => $builder->getModel(),  'method' => $method];
+        array_push(static::$methods, $item);
+        $builder->with([$name => $func ?: function () {}]);
+        return $builder;
+    }
+
+
+
     // 以下为核心方法
     protected static $macros = [];
+    protected static $methods = [];
     public function extend(Builder $builder)
     {
+        $model = $builder->getModel();
+        foreach (static::$methods as $item) {
+            if ($item['model'] == $model) {
+                $item['method']($builder);
+            }
+        }
         foreach (static::$macros as $key => $value) {
             $builder->macro($key, $value);
         }
