@@ -111,7 +111,7 @@ class RestfulService
             $str = str_replace(' ', '-', ucwords($str));
             $header[] = 'X-Env-' . $str . ':' . $value;
         }
-        $header[] = 'X-Token:' . env('X-TOKEN');
+        $header[] = 'X-Token:' . (env('X-Token') ?: env('X-TOKEN'));
         curl_setopt ( $ch, CURLOPT_HTTPHEADER, $header);
         curl_setopt ( $ch, CURLOPT_RETURNTRANSFER, TRUE );
         curl_setopt ( $ch, CURLOPT_TIMEOUT, 5);
