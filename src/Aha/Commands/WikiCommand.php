@@ -16,7 +16,7 @@ class WikiCommand extends Command
         $this->info(json_encode($data));
     }
 
-    protected $swagger = [
+    public $swagger = [
         'swagger' => '2.0', 
         'info' => [
             'description' => '后台管理api',
@@ -28,7 +28,11 @@ class WikiCommand extends Command
         'basePath' => '/',
         'tags' => [],
         'paths' => [],
-        'definitions' => [],
+        'definitions' => ['Error' => [
+            'description' => '错误信息',
+            'type' => 'object',
+            'properties' => ['code' => ['type' => 'integer']]
+        ]],
     ];
     public function doSwagger()
     {
@@ -71,19 +75,20 @@ class WikiCommand extends Command
         }
         foreach ($routes as $item) {
             $class = $item['response_class'];
-            if ($class{0} == '{') {
+            if ($class && $class{0} != '{') {
+                $ext = trim(strrchr($item['router'], '/'), '/');
+                // 新版从注释读取类定义
+                $model = self::getDefiProperty($class);
+                $input = self::getTypeProperty($class, $ext);
+            } else {
                 $input = '';
                 $model = '';
-            } else {
-                $ext = trim(strrchr($item['router'], '/'), '/');
-                $input = array_get($this->getDefi($class, FALSE, $ext), 'description');
-                $model = array_get($this->getDefi($class, TRUE), 'description');
             }
-            
             $request = [];
             if ($consumes = array_get($item, 'consumes')) {
                 $request['consumes'] = $consumes;
             }
+            // @see in 优先级第1 ，@source引用第二，@return 第三
             $parameters = array_get($item, 'parameters');
             if ($parameters && is_array($parameters)) {
                 $request['parameters'] = isset($parameters[0]) ? $parameters : [[
@@ -97,7 +102,7 @@ class WikiCommand extends Command
                     'name' => 'Body',
                     'in' => 'body',
                     'required' => true,
-                    'schema' => $this->getDefi($source),
+                    'schema' => ['type' => 'object', 'properties' => $this->getType($source)],
                 ]];
             } else if (is_string($source = array_get($item, 'request_link'))) {
                 $value = json_decode($source, TRUE);
@@ -147,34 +152,15 @@ class WikiCommand extends Command
         return 'ok';
     }
 
-    // 获取定义
-    public function getDefi($class, $extra = NULL, $ext = '')
+    // 通过输入参数定义
+    public function getTypeProperty($class, $ext)
     {
-        if (is_array($class)) {
-            $dict = [];
-            foreach ($class as $key => $value) {
-                array_set($dict, str_replace('.*', '.0', $key), $value);
-            }
-            return ['type' => 'object', 'properties' => self::getType($dict)];
-        }
-        $typename = $extra === FALSE ? 'rule' : 'type';
-        $modelname = ($extra === TRUE ? 'Model' : "Input") . class_basename($class);
-        $data = array_get($this->swagger['definitions'], $modelname);
-        if ($data) {
-            return $data;
-        }
-        // 防止循环调用
-        if ($ext) {
-            $modelname .= ucfirst($ext);
-        }
-        $this->swagger['definitions'][$modelname] = ['description' => $modelname];
-        $vars = self::getProp($class, $typename, [
+        $class = trim($class, '\\');
+        $alias = 'Input' . preg_replace('/[\\\]/','-', $class);
+        $vars = self::getProp($class, 'rule', [
             'id' => 'int|desc:主键id',
+            'ver' => 'int|desc:版本号',
         ]);
-        $bcd = is_array($extra) ? $extra : ($extra == TRUE ? [
-            'created_at' => 'string|desc:创建时间',
-            'updated_at' => 'string|desc:更新时间',
-        ] : []);
         if ($ext) {
             $maps = (self::getProp($class, 'maps') ?: []) + [
                 'id' => 'get,update,status,updown',
@@ -194,15 +180,98 @@ class WikiCommand extends Command
                 $maps = array_intersect_key($vars, array_flip($arr));
             }
         } else {
-            $maps = $vars + $bcd;
+            $maps = $vars;
         }
         $data = [
-            'description' => $modelname,
+            'description' => '',
             'type' => 'object',
-            'properties' => self::getType($maps, $class, $modelname),
+            'properties' => self::getType($maps),
         ];
-        $this->swagger['definitions'][$modelname] = $data;
-        return $data;
+        self::formatDesc($data, substr($alias, 5));
+        $this->swagger['definitions'][$alias] = $data;
+        return $alias;
+    }
+
+    // 递归格式化描述
+    public function formatDesc(&$data, $alias)
+    {
+        $dict = array_get($this->swagger['definitions'], $alias . '.properties');
+        foreach ($data['properties'] as $key => $value) {
+            if (!isset($dict[$key])) {
+                continue;
+            } else if ($value['type'] == 'array') {
+                if ($ref = array_get($dict, $key . '.items.$ref')) {
+                    self::formatDesc($value['items'], substr($ref, 14));
+                    $data['properties'][$key]['items'] = $value['items'];
+                }
+            } else if ($value['type'] == 'object') {
+                if ($ref = array_get($dict, $key . '.$ref')) {
+                    self::formatDesc($value, substr($ref, 14));
+                     $data['properties'][$key] = $value;
+                }
+            } else if (!array_get($value, 'description')) {
+                $desc = array_get($dict, $key . '.description');
+                if ($desc) {
+                    $data['properties'][$key]['description'] =  $desc;
+                }
+            }
+        }
+    }
+
+    // 获取类注释属性
+    public function getDefiProperty($class)
+    {
+        $class = trim($class, '\\');
+        $alias = preg_replace('/[\\\]/','-', $class);
+        if (array_has($this->swagger['definitions'], $alias)) {
+            return $alias;
+        }
+        $reflection = new \ReflectionClass($class);
+        $doc = $reflection->getDocComment();
+        preg_match_all('/@property(.+)/', $doc, $arr);
+        $arr = isset($arr[1]) ? $arr[1] : [];
+        $arr = preg_replace('/\s\s+/', ' ', $arr);
+        foreach ($arr as $key => $value) {
+            $arr[$key] = explode(' ', trim($value));
+        }
+        if ($doc) {
+            $desc = trim(substr($doc, 6, stripos($doc, '*', 6) - 6));
+        } else {
+            $desc = $alias;
+        }
+        $instance = new $class;
+        $properties = [];
+        foreach ($arr as $val) {
+            if (count($val) != 3) {
+                continue;
+            }
+            list($type, $field, $desc) = $val;
+            $properties[$field] = ['description' => $desc];
+            $properties[$field]['type'] = $type;
+            if ($type == 'array' || $type == 'object') {
+                if (method_exists($instance, $field)) {
+                    $relation = $instance->$field();
+                    $related = get_class($relation->getRelated());
+                    $name = self::getDefiProperty($related);
+                    $ref = '#/definitions/' . $name;
+                    if ($type == 'array') {
+                        $properties[$field]['items']['$ref'] = $ref;
+                    } else {
+                        unset($properties[$field]['description']);
+                        unset($properties[$field]['type']);
+                        $properties[$field]['$ref'] = $ref;
+                    }
+                }
+            }
+        }
+        $this->swagger['definitions'][$alias] = [
+            'description' => $desc,
+            'type' => 'object',
+            'properties' => $properties ?: [
+                'id' => ['type' => 'integer']
+            ],
+        ];
+        return $alias;
     }
 
     // 获取类型，设置备注
@@ -245,10 +314,9 @@ class WikiCommand extends Command
                 $instance = new $class;
                 $relation = $instance->$name();
                 $related = get_class($relation->getRelated());
-                $data = $this->getDefi($related, TRUE);
-                $modelname = array_get($data, 'description');
+                $modelname = $this->getDefiProperty($related);
                 $properties[$key] = $type == 'array' ? [
-                    'description' => $desc,
+                    'description' => $modelname,
                     'type' => 'array',
                     'items' => ['$ref' => '#/definitions/' . $modelname]
                 ] : ['$ref' => '#/definitions/' . $modelname];
