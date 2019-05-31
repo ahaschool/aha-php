@@ -38,9 +38,9 @@ class RichOrm implements Scope
         $table = $refer->getRelated()->getTable();
         $builder->join($table, function ($join) use ($refer, $where) {
             if ($refer instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
-                $join->on($refer->getQualifiedOtherKeyName(), '=', $refer->getQualifiedForeignKey());
+                $join->on($refer->getQualifiedOwnerKeyName(), '=', $refer->getQualifiedForeignKey());
             } else {
-                $join->on($refer->getForeignKey(), '=', $refer->getQualifiedParentKeyName());
+                $join->on($refer->getQualifiedForeignKeyName(), '=', $refer->getQualifiedParentKeyName());
             }
             if ($where) {
                 $where($join);

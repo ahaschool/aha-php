@@ -31,7 +31,7 @@ class RichQuery
             $obj = array_pop($arr);
             if (isset($obj['object']) && $obj['object'] instanceof \Illuminate\Database\Eloquent\Builder) {
                 $obj['object']->macro('adapt', function ($q, $k) {
-                    return call_user_func('\Aha\RichBuilder::adapt', $q->getQuery(), $k);
+                    return call_user_func(__class__ . '::adapt', $q->getQuery(), $k);
                 });
             }
         }

@@ -2,6 +2,8 @@
 ## 注意事项：
 * 使用aha包时请使用绝对路径，如\Aha\Xxx:method(xxx)，方便查找管理  
 
+* 请使用lumen5.7版本
+
 ## env配置示例
 ```
 KAFKA_APP_BROKER=127.0.0.1
