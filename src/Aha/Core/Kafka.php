@@ -21,9 +21,9 @@ class Kafka
         }
         $kafka = isset($dict[$type]) ? $dict[$type] : null;
         if (!$kafka) {
-            $dict[$type] = $kafka;
             $kafka = new \RdKafka\Producer();
             $kafka->addBrokers($config['broker']);
+            $dict[$type] = $kafka;
         }
         $topic = $kafka->newTopic($config['prefix'] . $name);
         return $topic;
