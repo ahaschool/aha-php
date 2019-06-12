@@ -53,6 +53,7 @@ class Handler extends ExceptionHandler
     {
         $code = $e->getCode() ?: 1234;
         $message = $e->getMessage() ?: '服务出现异常';
+        $code = intval(env('ERROR_CODE_PREFIX') . $code);
         $data = ['code' => $code, 'message' => $message];
         if ($code == 1303) {
             $data['validates'] = $e->getResponse()->getData();
