@@ -19,6 +19,7 @@ class AhaServiceProvider extends ServiceProvider
     public function registerCommand()
     {
         $this->commands(['\Aha\Commands\WikiCommand']);
+        $this->commands(['\Aha\Commands\JenkinsCommand']);
     }
 
     public function registerService($plugin)
