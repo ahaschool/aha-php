@@ -19,6 +19,7 @@ class RichOrm implements Scope
         'findOrSave' => 'static::findOrSave',
         'withOne' => 'static::withOne',
         'withMany' => 'static::withMany',
+        'updateOrNew' => 'static::updateOrNew',
     ];
 
     public static function findOrSave($builder, $data)
@@ -29,6 +30,27 @@ class RichOrm implements Scope
             $model->save();
         }
         return $model;
+    }
+
+    public static function updateOrNew($builder, $column, $column_infos, $data)
+    {
+        $column_data = array_column($column_infos, $column);
+        $exist_data = $builder->whereIn($column, $column_data)->pluck($column)->toArray();
+        if ($exist_data) {
+            $builder->whereIn($column, $exist_data)->update($data);
+        }
+        $new_data = array_filter($column_infos, function ($value) use ($column, $exist_data) {
+            if (!in_array($value[$column], $exist_data)) {
+                return true;
+            }
+        });
+        if (!$new_data) {
+            return false;
+        }
+        array_walk($new_data, function (&$value) use ($data) {
+            $value = $value + $data;
+        });
+        return $builder->insert($new_data);
     }
 
     public static function relate($builder, $relation, \Closure $where = null, $type = 'inner')
