@@ -21,17 +21,18 @@ class Kafka
         }
         $kafka = isset($dict[$type]) ? $dict[$type] : null;
         if (!$kafka) {
-            if (env('LOG_KAFKA_OPEN') === true) {
+            if (env('LOG_KAFKA_OPEN') === true && env('LOG_PATH')) {
+                $log_path = env('LOG_PATH');
                 $conf = new \RdKafka\Conf();
-                $conf->setDrMsgCb(function ($ka, $message) use ($key, $data) {
+                $conf->setDrMsgCb(function ($ka, $message) use ($key, $data, $log_path) {
                     if ($message->err) {
-                        static::writeFailData($key, $data, 'msg_err');
-                        static::writeErrorLog($message->err, '', 'msg_err');
+                        static::writeFailData($key, $data, 'msg_err', $log_path);
+                        static::writeErrorLog($message->err, '', 'msg_err', $log_path);
                     }
                 });
-                $conf->setErrorCb(function ($ka, $err, $reason) use ($key, $data) {
-                    static::writeFailData($key, $data, 'error');
-                    static::writeErrorLog($err, $reason, 'error');
+                $conf->setErrorCb(function ($ka, $err, $reason) use ($key, $data, $log_path) {
+                    static::writeFailData($key, $data, 'error', $log_path);
+                    static::writeErrorLog($err, $reason, 'error', $log_path);
                 });
                 $kafka = new \RdKafka\Producer($conf);
                 $kafka->setLogLevel(LOG_INFO);
@@ -51,23 +52,25 @@ class Kafka
         $topic->produce(RD_KAFKA_PARTITION_UA, 0, json_encode($data));
     }
 
-    public static function writeFailData($key, $data, $source)
+    public static function writeFailData($key, $data, $source, $path)
     {
         $output = [
             'key' => $key,
             'data' => $data,
+            'time' => time(),
             'source' => $source,
         ];
-        file_put_contents(env('LOG_PATH') . 'kafka-fail-data.log', json_encode($output, true).PHP_EOL, FILE_APPEND);
+        file_put_contents($path . 'kafka-fail-data.log', json_encode($output, true).PHP_EOL, FILE_APPEND);
     }
 
-    public static function writeErrorLog($err, $reason, $source)
+    public static function writeErrorLog($err, $reason, $source, $path)
     {
         $output = [
             'error' => $err,
             'reason' => $reason,
+            'time' => time(),
             'source' => $source,
         ];
-        file_put_contents(env('LOG_PATH') . 'service-error.log', json_encode($output, true).PHP_EOL, FILE_APPEND);
+        file_put_contents($path . 'service-error.log', json_encode($output, true).PHP_EOL, FILE_APPEND);
     }
 }
