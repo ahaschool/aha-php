@@ -65,11 +65,16 @@ class Kafka
 
     public static function writeErrorLog($err, $reason, $source, $path)
     {
+        $errMsg = 'kafka发送失败记录-kafka-error';
+        if ($source == 'msg_err') {
+            $errMsg = 'kafka发送失败记录-kafka-send-error';
+        }
         $output = [
             'error' => $err,
             'reason' => $reason,
             'time' => time(),
             'source' => $source,
+            'err_msg' => $errMsg,
         ];
         file_put_contents($path . 'service-error.log', json_encode($output, true).PHP_EOL, FILE_APPEND);
     }
